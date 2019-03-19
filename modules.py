@@ -21,13 +21,17 @@ def normalize(inputs,
 		A tensor with the same shape and data type as "inputs"
 	'''
 	with tf.variable_scope(scope, reuse = reuse):
+		# a.get_shape().as_list() --->a维度是(2,3)，那么这个返回就是 [2, 3]
 		inputs_shape = inputs.get_shape()
+		# params_shape就是最后的一个维度了
 		params_shape = inputs_shape[-1 :]
-
+		# input形如：[batch_size, height, width, kernels]
+		# tf.nn.moments 计算返回的 mean 和 variance 作为 tf.nn.batch_normalization 参数调用。
 		mean, variance = tf.nn.moments(inputs, [-1], keep_dims = True)
 		beta = tf.Variable(tf.zeros(params_shape))
 		gamma = tf.Variable(tf.ones(params_shape))
 		normalized = (inputs - mean) / ((variance + epsilon) ** (.5))
+		# 按值相乘, 广播
 		outputs = gamma * normalized + beta
 
 	return outputs
@@ -88,10 +92,13 @@ def positional_encoding(inputs,
 # 			outputs = outputs * math.sqrt(num_units)
 
 # 	return outputs
-
+	"""
+	    inputs (batch_size, 1+len(inputs)) 那么N就是batch_size, 然后T就是maxlen，大小为10
+	    num_units 就是隐层单元的个数，维度的大小
+	"""
 	N, T = inputs.get_shape().as_list()
-	
-   	with tf.variable_scope(scope, reuse=reuse):
+ 	with tf.variable_scope(scope, reuse=reuse):
+		# axes:0 重复N次, axes:1 不变
 		position_ind = tf.tile(tf.expand_dims(tf.range(T), 0), [N, 1])
 
 		# First part of the PE function: sin and cos argument
