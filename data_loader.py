@@ -49,6 +49,7 @@ def generate_dataset(source_sents, target_sents):
 	X = np.zeros([len(in_list), pm.maxlen], np.int32)
 	Y = np.zeros([len(out_list), pm.maxlen], np.int32)
 	for i, (x, y) in enumerate(zip(in_list, out_list)):
+		# 补0
 		X[i] = np.lib.pad(x, (0, pm.maxlen - len(x)), 'constant', constant_values = (0, 0))
 		Y[i] = np.lib.pad(y, (0, pm.maxlen - len(y)), 'constant', constant_values = (0, 0))
 
@@ -88,7 +89,7 @@ def get_batch_data():
 	A batch dataset generator
 	'''
 	inpt, outpt = load_data("train")
-
+	# 整数除法, 返回不大于结果的一个最大的整数
 	batch_num = len(inpt) // pm.batch_size
 
 	inpt = tf.convert_to_tensor(inpt, tf.int32)
