@@ -9,6 +9,7 @@ from tqdm import tqdm
 import os
 
 class Graph():
+	# 直接就是一个init初始化一下
 	def __init__(self, is_training = True):
 		self.graph = tf.Graph()
 		with self.graph.as_default():
