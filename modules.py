@@ -146,6 +146,11 @@ def embedding(inputs,
 		Returns:
 			A 'Tensor' with one more rank than inputs's, with the dimensionality should be 'num_units'
 	'''
+	"""
+		inputs传进来就(batch_size, 10)
+		lookup_table维度(vocab_size, 512)，进行了随机的初始化
+	"""
+	# shape = [vocabsize, 8]
 	with tf.variable_scope(scope, reuse = reuse):
 		lookup_table = tf.get_variable('lookup_table',
 										dtype = tf.float32,
@@ -153,6 +158,11 @@ def embedding(inputs,
 										initializer = tf.contrib.layers.xavier_initializer())
 
 		if zero_pad:
+			''' 
+				tf.zeros 维度(1, 512)
+				lookup_table[1:, :]的目的是抛开了<PAD>这玩意儿，赋值为0，然后进行了合并
+				现在look  _table维度还是(vocab_size, 512  ) 
+			'''
 			lookup_table = tf.concat((tf.zeros(shape = [1, num_units]),
 									lookup_table[1:, :]), 0)
 		outputs = tf.nn.embedding_lookup(lookup_table, inputs)
@@ -189,13 +199,21 @@ def multihead_attention(queries,
 	Returns:
 		A 3-dimensions tensor with shape of [N, T_q, S]
 	'''
+	""" 
+		queries = self.enc  (batch_size, 10 ,512)==[N, T_q, S] keys也是self.enc  
+	    num_units =512, num_heads =10
+	"""
 	with tf.variable_scope(scope, reuse = reuse):
 		if num_units is None:
 			# length of sentence
 			num_units = queries.get_shape().as_list()[-1]
 
 		# Linear layers in Figure 2(right)
-		# shape = [N, T_q, S]
+		""" 
+			Linear layers in Figure 2(right) 就是Q、K、V进入scaled Dot-product Attention前的Linear的操作
+		    首先是进行了全连接的线性变换
+		    shape = [N, T_q, S]  (batch_size, 10 ,512)， S可以理解为512
+		"""
 		Q = tf.layers.dense(queries, num_units, activation = tf.nn.relu)
 		# shape = [N, T_k, S]
 		K = tf.layers.dense(keys, num_units, activation = tf.nn.relu)
@@ -203,6 +221,10 @@ def multihead_attention(queries,
 		V = tf.layers.dense(keys, num_units, activation = tf.nn.relu)
 
 		# Split and concat
+		'''
+		    Q_、K_、V_就是权重WQ、WK、WV。
+		    shape (batch_size*8， 10, 512/8=64)
+		'''
 		# shape = [N*h, T_q, S/h]
 		Q_ = tf.concat(tf.split(Q, num_heads, axis = 2), axis = 0)
 		# shape = [N*h, T_k, S/h]
@@ -217,6 +239,8 @@ def multihead_attention(queries,
 		outputs = outputs / (K_.get_shape().as_list()[-1] ** 0.5)
 
 		# Masking
+		# 这里的tf.reduce_sum进行了降维，由三维降低到了2维度，然后是取绝对值，转成0-1之间的值
+		'''[N, T_k, 512]------> [N, T_k] -----》[N*h, T_k] -----》[N*h, T_q, T_k] '''
 		# shape = [N, T_k]
 		key_masks = tf.sign(tf.abs(tf.reduce_sum(keys, axis = -1)))
 		# shape = [N*h, T_k]
@@ -224,7 +248,7 @@ def multihead_attention(queries,
 		# shape = [N*h, T_q, T_k]
 		key_masks = tf.tile(tf.expand_dims(key_masks, 1), [1, tf.shape(queries)[1], 1])
 
-		# If key_masks == 0 outputs = [1]*length(outputs)
+		# If key_masks == 0 outputs = [1]*length(outputs) 为了使softmax后概率为0
 		paddings = tf.ones_like(outputs) * (-math.pow(2, 32) + 1)
 		# shape = [N*h, T_q, T_k]
 		outputs = tf.where(tf.equal(key_masks, 0), paddings, outputs)
@@ -255,7 +279,8 @@ def multihead_attention(queries,
 		query_masks = tf.tile(query_masks, [num_heads, 1])
 		# shape = [N*h, T_q, T_k]
 		query_masks = tf.tile(tf.expand_dims(query_masks, -1), [1, 1, tf.shape(keys)[1]])
-		outputs *= query_masks 
+		outputs *= query_masks
+		# 对空缺的词概率置位0
 
 		# Dropouts
 		outputs = tf.layers.dropout(outputs, rate = dropout_rate, training = tf.convert_to_tensor(is_training))
@@ -299,14 +324,12 @@ def feedforward(inputs,
 				  # "activation": tf.nn.relu, "use_bias": True}
 		# outputs = tf.layers.conv1d(inputs = inputs, filters = num_units[0], kernel_size = 1, activation = tf.nn.relu, use_bias = True)
 		# outputs = tf.layers.conv1d(**params)
-		params = {"inputs": inputs, "num_outputs": num_units[0], \
-				  "activation_fn": tf.nn.relu}
+		params = {"inputs": inputs, "num_outputs": num_units[0],"activation_fn": tf.nn.relu}
 		outputs = tf.contrib.layers.fully_connected(**params)
 
 		# params = {"inputs": inputs, "filters": num_units[1], "kernel_size": 1, \
 		# 		  "activation": None, "use_bias": True}
-		params = {"inputs": inputs, "num_outputs": num_units[1], \
-				  "activation_fn": None}
+		params = {"inputs": inputs, "num_outputs": num_units[1], "activation_fn": None}
 		# outputs = tf.layers.conv1d(inputs = inputs, filters = num_units[1], kernel_size = 1, activation = None, use_bias = True)
 		# outputs = tf.layers.conv1d(**params)
 		outputs = tf.contrib.layers.fully_connected(**params)
@@ -329,6 +352,9 @@ def label_smoothing(inputs, epsilon = 0.1):
 	Return:
 		A tensor after smoothing
 	'''
-
+	''' 
+		inputs的维度应该是(batch_size, sentense_length, vector dimension)
+	    N就是batch_size, T就是句子的长度，V就是向量的维度大小
+	'''
 	K = inputs.get_shape().as_list()[-1]
 	return ((1 - epsilon) * inputs) + (epsilon / K)
