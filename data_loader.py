@@ -92,8 +92,8 @@ def get_batch_data():
 	# 整数除法, 返回不大于结果的一个最大的整数
 	batch_num = len(inpt) // pm.batch_size
 
-	inpt = tf.convert_to_tensor(inpt, tf.int32)
-	outpt = tf.convert_to_tensor(outpt, tf.int32)
+	inpt = tf.convert_to_tensor(inpt, tf.int32)# 转化为wordid,整型,长度不够补0
+	outpt = tf.convert_to_tensor(outpt, tf.int32)# 转化为wordid,整型,长度不够补0
 
 	# parsing data into queue used for pipeline operations as a generator. 
 	input_queues = tf.train.slice_input_producer([inpt, outpt])
